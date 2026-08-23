@@ -163,6 +163,7 @@ struct sslCheckOptions
     int compression;
     int heartbleed;
     int groups;
+    int groups_all_versions;
     int signature_algorithms;
     int starttls_ftp;
     int starttls_imap;
