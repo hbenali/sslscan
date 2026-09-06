@@ -74,6 +74,7 @@ Key changes are as follows:
 * Check for supported server signature algorithms.
 * Display IANA/RFC cipher names `--iana-names`
 * Display the full certifiate chain `--show-certificates`
+* Added option to scan groups on all supported protocols `--all-groups`.
 
 ### Building on Linux
 
