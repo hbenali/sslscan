@@ -137,6 +137,11 @@ Do not check for OpenSSL Heartbleed (CVE-2014-0160)
 .B \-\-no\-groups
 Do not enumerate key exchange groups
 .TP
+.B \-\-all\-groups
+Enumerate key exchange groups for all supported TLS versions, not just the
+highest among TLS 1.0, 1.1, and 1.2. Use when auditing servers that may have
+different group policies per protocol version.
+.TP
 .B \-\-show\-sigs
 Enumerate signature algorithms
 .TP

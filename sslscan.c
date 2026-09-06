@@ -3726,6 +3726,7 @@ int main(int argc, char *argv[])
     sslOptions.compression = true;
     sslOptions.heartbleed = true;
     sslOptions.groups = true;
+    sslOptions.groups_all_versions = false;
     sslOptions.signature_algorithms = false;
     sslOptions.starttls_ftp = false;
     sslOptions.starttls_imap = false;
@@ -3909,6 +3910,10 @@ int main(int argc, char *argv[])
         // Should we check for key exchange groups?
         else if (strcmp("--no-groups", argv[argLoop]) == 0)
             options->groups = false;
+
+        // Should we enumerate groups across all supported TLS versions?
+        else if (strcmp("--all-groups", argv[argLoop]) == 0)
+            options->groups_all_versions = true;
 
         // Should we check for signature algorithms?
         else if (strcmp("--show-sigs", argv[argLoop]) == 0)
@@ -4206,6 +4211,7 @@ int main(int argc, char *argv[])
             printf("  %s--no-compression%s     Do not check for TLS compression (CRIME)\n", COL_GREEN, RESET);
             printf("  %s--no-fallback%s        Do not check for TLS Fallback SCSV\n", COL_GREEN, RESET);
             printf("  %s--no-groups%s          Do not enumerate key exchange groups\n", COL_GREEN, RESET);
+            printf("  %s--all-groups%s         Enumerate key exchange groups for all supported TLS versions\n", COL_GREEN, RESET);
             printf("  %s--no-heartbleed%s      Do not check for OpenSSL Heartbleed (CVE-2014-0160)\n", COL_GREEN, RESET);
             printf("  %s--no-renegotiation%s   Do not check for TLS renegotiation\n", COL_GREEN, RESET);
             printf("  %s--show-sigs%s          Enumerate signature algorithms\n", COL_GREEN, RESET);
@@ -5638,11 +5644,14 @@ int testMissingCiphers(struct sslCheckOptions *options, unsigned int tls_version
   return ret;
 }
 
-/* Enumerates all the group key exchanges supported by the server.  Tests the highest supported protocol between TLSv1.0 and v1.2, along with TLSv1.3 (if enabled). */
+/* Enumerates all the group key exchanges supported by the server.  Tests TLSv1.3 (if enabled) and,
+ * by default, only the highest supported protocol between TLSv1.0 and v1.2.  With --all-groups,
+ * tests every supported TLSv1.0-1.2 version so that groups only accepted under older protocol
+ * policies are not missed. */
 int testSupportedGroups(struct sslCheckOptions *options) {
   int ret = true, s = -1;
   unsigned int printed_header = 0;
-  int test_versions[2] = {-1, -1};
+  int test_versions[4] = {-1, -1, -1, -1};
   bs *client_hello = NULL, *ciphersuite_list = NULL, *tls_extensions = NULL, *tls_record = NULL, *key_exchange = NULL;
 
   struct group_key_exchange {
@@ -5736,15 +5745,20 @@ int testSupportedGroups(struct sslCheckOptions *options) {
     index++;
   }
 
-  /* For TLSv1.2 and below, test the highest protocol version supported. */
-  if (options->tls12_supported)
-    test_versions[index] = TLSv1_2;
-  else if (options->tls11_supported)
-    test_versions[index] = TLSv1_1;
-  else if (options->tls10_supported)
-    test_versions[index] = TLSv1_0;
+  /* For TLSv1.2 and below: with --all-groups, test every supported version so
+   * that groups only accepted under older protocol policies are not missed.
+   * Without --all-groups, only test the highest supported version (default). */
+  if (options->groups_all_versions) {
+    if (options->tls12_supported) { test_versions[index] = TLSv1_2; index++; }
+    if (options->tls11_supported) { test_versions[index] = TLSv1_1; index++; }
+    if (options->tls10_supported) { test_versions[index] = TLSv1_0; index++; }
+  } else {
+    if (options->tls12_supported)      test_versions[index] = TLSv1_2;
+    else if (options->tls11_supported) test_versions[index] = TLSv1_1;
+    else if (options->tls10_supported) test_versions[index] = TLSv1_0;
+  }
 
-  /* Loop through the one or two TLS versions to test. */
+  /* Loop through the TLS versions to test. */
   for (index = 0; index < (sizeof(test_versions) / sizeof(int)); index++) {
     int tls_version = test_versions[index];
 
@@ -6140,7 +6154,7 @@ int testSignatureAlgorithms(struct sslCheckOptions *options) {
 
   unsigned int printed_header = 0;
   int ret = true, s = -1;
-  int test_versions[2] = {-1, -1};
+  int test_versions[4] = {-1, -1, -1, -1};
   bs *client_hello = NULL, *ciphersuite_list = NULL, *tls_extensions = NULL, *server_hello = NULL;
 
   /* If TLSv1.3 is supported, test it first. */
@@ -6150,15 +6164,20 @@ int testSignatureAlgorithms(struct sslCheckOptions *options) {
     index++;
   }
 
-  /* For TLSv1.2 and below, test the highest protocol version supported. */
-  if (options->tls12_supported)
-    test_versions[index] = TLSv1_2;
-  else if (options->tls11_supported)
-    test_versions[index] = TLSv1_1;
-  else if (options->tls10_supported)
-    test_versions[index] = TLSv1_0;
+  /* For TLSv1.2 and below: with --all-groups, test every supported version so
+   * that groups only accepted under older protocol policies are not missed.
+   * Without --all-groups, only test the highest supported version (default). */
+  if (options->groups_all_versions) {
+    if (options->tls12_supported) { test_versions[index] = TLSv1_2; index++; }
+    if (options->tls11_supported) { test_versions[index] = TLSv1_1; index++; }
+    if (options->tls10_supported) { test_versions[index] = TLSv1_0; index++; }
+  } else {
+    if (options->tls12_supported)      test_versions[index] = TLSv1_2;
+    else if (options->tls11_supported) test_versions[index] = TLSv1_1;
+    else if (options->tls10_supported) test_versions[index] = TLSv1_0;
+  }
 
-  /* Loop through the one or two TLS versions to test. */
+  /* Loop through the TLS versions to test. */
   for (index = 0; index < (sizeof(test_versions) / sizeof(int)); index++) {
     int tls_version = test_versions[index];
 
